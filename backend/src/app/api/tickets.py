@@ -111,16 +111,31 @@ def _verify_signature(body: bytes, signature: str | None) -> None:
 
 
 def _extract_images(markdown_body: str) -> list[IncidentImage]:
-    """Pull image URLs from a GitHub markdown body.
+    """Pull image URLs from a GitHub issue body.
 
-    Handles ``![alt](url)`` and bare ``https://...png|jpg|gif|webp`` patterns.
+    Handles three real-world cases:
+    - markdown ``![alt](url)``
+    - HTML ``<img src="url">`` (GitHub's drag-and-drop default)
+    - bare ``https://...{png,jpg,gif,webp}`` URLs
+    - GitHub user-attachments URLs (no extension):
+      ``https://github.com/user-attachments/assets/<uuid>``
     """
     import re
 
     urls: list[str] = []
-    urls += re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown_body)
+    urls += re.findall(r"!\[[^\]]*\]\(([^)\s]+)", markdown_body)
     urls += re.findall(
-        r"https?://\S+\.(?:png|jpe?g|gif|webp)",
+        r"""<img[^>]*\bsrc\s*=\s*["']([^"']+)["']""",
+        markdown_body,
+        flags=re.IGNORECASE,
+    )
+    urls += re.findall(
+        r"https?://\S+?\.(?:png|jpe?g|gif|webp)",
+        markdown_body,
+        flags=re.IGNORECASE,
+    )
+    urls += re.findall(
+        r"https?://github\.com/user-attachments/assets/[A-Za-z0-9-]+",
         markdown_body,
         flags=re.IGNORECASE,
     )
