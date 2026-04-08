@@ -8,10 +8,18 @@ from __future__ import annotations
 
 from app.agents.base import Agent, EchoAgent
 from app.agents.claude_agent import ClaudeAgent
+from app.agents.guardrail_agent import GuardrailAgent
+from app.agents.image_analyzer_agent import ImageAnalyzerAgent
+from app.agents.ticket_orchestrator import TicketOrchestratorAgent
+from app.agents.triage_drafter_agent import TriageDrafterAgent
 
 _REGISTRY: dict[str, Agent] = {
     EchoAgent.name: EchoAgent(),
     ClaudeAgent.name: ClaudeAgent(),
+    GuardrailAgent.name: GuardrailAgent(),
+    ImageAnalyzerAgent.name: ImageAnalyzerAgent(),
+    TriageDrafterAgent.name: TriageDrafterAgent(),
+    TicketOrchestratorAgent.name: TicketOrchestratorAgent(),
 }
 
 

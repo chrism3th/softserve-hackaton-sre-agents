@@ -42,6 +42,18 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 60.0
 
+    # Linear
+    linear_api_key: str = ""
+    linear_team_key: str = "TEA"
+    linear_api_url: str = "https://api.linear.app/graphql"
+
+    # GitHub
+    github_webhook_secret: str = ""
+
+    # Phoenix tracing
+    phoenix_collector_endpoint: str = "http://phoenix:6006"
+    phoenix_project_name: str = "sre-agents"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
