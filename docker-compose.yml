@@ -1,0 +1,74 @@
+# Base compose file: shared service topology for dev and prod.
+# Do not run this file alone — always pair with one of:
+#   docker-compose.dev.yml  (hot-reload, source mounts, debug)
+#   docker-compose.prod.yml (built images, resource limits, no mounts)
+#
+# Usage:
+#   make up             # dev
+#   make up-prod        # prod-like
+#
+name: hackaton
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend_net]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend_net]
+    restart: unless-stopped
+
+  backend:
+    environment:
+      ENV: ${ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-app}
+      REDIS_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-6}
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [backend_net, frontend_net]
+    restart: unless-stopped
+
+  frontend:
+    depends_on:
+      - backend
+    networks: [frontend_net]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  backend_net:
+    driver: bridge
+  frontend_net:
+    driver: bridge

@@ -1,0 +1,44 @@
+# Production-like override: built images, resource limits, no source mounts.
+# Combine with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: hackaton/backend:${TAG:-latest}
+    environment:
+      ENV: prod
+      LOG_LEVEL: INFO
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  frontend:
+    build:
+      # Context is the repo root so the Dockerfile can COPY infra/nginx/default.conf
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: hackaton/frontend:${TAG:-latest}
+    ports:
+      - "8080:80"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
