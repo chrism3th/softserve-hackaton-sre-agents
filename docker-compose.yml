@@ -48,6 +48,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-6}
+      LINEAR_API_KEY: ${LINEAR_API_KEY:-}
+      LINEAR_TEAM_KEY: ${LINEAR_TEAM_KEY:-TEA}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
     depends_on:
       db:
