@@ -26,6 +26,7 @@ from app.agents.base import Agent, AgentRequest, AgentResponse
 from app.agents.prompts import load_prompt
 from app.config import get_settings
 from app.core.logging import get_logger
+from app.core.observability import get_tracer
 from app.tickets.models import ImageInsight, IncidentImage
 
 logger = get_logger(__name__)
@@ -66,6 +67,12 @@ class ImageAnalyzerAgent(Agent):
         )
 
     async def analyze(self, images: list[IncidentImage]) -> list[ImageInsight]:
+        tracer = get_tracer()
+        with tracer.start_as_current_span("image_analyzer.analyze") as span:
+            span.set_attribute("image.count", len(images))
+            return await self._analyze_inner(images)
+
+    async def _analyze_inner(self, images: list[IncidentImage]) -> list[ImageInsight]:
         if not images:
             return []
         settings = get_settings()

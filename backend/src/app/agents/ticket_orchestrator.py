@@ -19,6 +19,7 @@ from app.agents.triage_drafter_agent import TriageDrafterAgent
 from app.config import get_settings
 from app.core.db import session_scope
 from app.core.logging import get_logger
+from app.core.observability import get_tracer
 from app.tickets.linear_client import LinearClient
 from app.tickets.models import (
     ImageInsight,
@@ -69,6 +70,23 @@ class TicketOrchestratorAgent(Agent):
         )
 
     async def orchestrate(self, incident: IncidentDTO) -> OrchestratorResult:
+        tracer = get_tracer()
+        with tracer.start_as_current_span("ticket_orchestrator.orchestrate") as span:
+            span.set_attribute("incident.source", incident.source.value)
+            span.set_attribute("incident.reporter", incident.reporter or "anonymous")
+            span.set_attribute("incident.title", incident.title[:200])
+            result = await self._orchestrate_inner(incident)
+            span.set_attribute("ticket.linear_identifier", result.linear_identifier or "")
+            span.set_attribute("ticket.severity", result.severity.value)
+            span.set_attribute("ticket.score", result.score)
+            span.set_attribute("ticket.blocked", result.blocked)
+            span.set_attribute(
+                "guardrail.flags",
+                ",".join(f.value for f in result.guardrail_flags),
+            )
+            return result
+
+    async def _orchestrate_inner(self, incident: IncidentDTO) -> OrchestratorResult:
         settings = get_settings()
 
         # 1. Guardrails — delegate to the GuardrailAgent (LLM + regex).

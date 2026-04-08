@@ -20,6 +20,7 @@ from app.agents.base import Agent, AgentRequest, AgentResponse
 from app.agents.prompts import load_prompt
 from app.config import get_settings
 from app.core.logging import get_logger
+from app.core.observability import get_tracer
 from app.tickets.models import IncidentDTO, Severity
 
 logger = get_logger(__name__)
@@ -53,6 +54,14 @@ class TriageDrafterAgent(Agent):
         )
 
     async def draft(self, incident: IncidentDTO) -> TriageDraft:
+        tracer = get_tracer()
+        with tracer.start_as_current_span("triage_drafter.draft") as span:
+            draft = await self._draft_inner(incident)
+            span.set_attribute("triage.severity", draft.severity.value)
+            span.set_attribute("triage.score", draft.score)
+            return draft
+
+    async def _draft_inner(self, incident: IncidentDTO) -> TriageDraft:
         settings = get_settings()
         if not settings.anthropic_api_key:
             return self._fallback(incident)

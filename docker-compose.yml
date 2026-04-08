@@ -27,6 +27,18 @@ services:
     networks: [backend_net]
     restart: unless-stopped
 
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    volumes:
+      - phoenix_data:/mnt/data
+    ports:
+      - "6006:6006"   # UI + OTLP HTTP
+      - "4317:4317"   # OTLP gRPC
+    networks: [backend_net]
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -51,6 +63,8 @@ services:
       LINEAR_API_KEY: ${LINEAR_API_KEY:-}
       LINEAR_TEAM_KEY: ${LINEAR_TEAM_KEY:-TEA}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      PHOENIX_COLLECTOR_ENDPOINT: ${PHOENIX_COLLECTOR_ENDPOINT:-http://phoenix:6006}
+      PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME:-sre-agents}
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
     depends_on:
       db:
@@ -69,6 +83,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  phoenix_data:
 
 networks:
   backend_net:

@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # GitHub
     github_webhook_secret: str = ""
 
+    # Phoenix tracing
+    phoenix_collector_endpoint: str = "http://phoenix:6006"
+    phoenix_project_name: str = "sre-agents"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

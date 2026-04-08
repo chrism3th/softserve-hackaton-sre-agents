@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import agents, health, tickets
 from app.config import get_settings
 from app.core.logging import configure_logging, get_logger
+from app.core.observability import init_tracing
 
 logger = get_logger(__name__)
 
@@ -19,6 +20,7 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
+    init_tracing()
     logger.info("app.startup", env=settings.env, version=app.version)
     yield
     logger.info("app.shutdown")

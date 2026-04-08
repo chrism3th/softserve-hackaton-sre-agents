@@ -23,6 +23,7 @@ from app.agents.base import Agent, AgentRequest, AgentResponse
 from app.agents.prompts import load_prompt
 from app.config import get_settings
 from app.core.logging import get_logger
+from app.core.observability import get_tracer
 from app.tickets.guardrails import scan_for_injection
 from app.tickets.models import GuardrailFlag, GuardrailVerdict
 
@@ -54,6 +55,16 @@ class GuardrailAgent(Agent):
         )
 
     async def evaluate(self, text: str) -> GuardrailVerdict:
+        tracer = get_tracer()
+        with tracer.start_as_current_span("guardrail.evaluate") as span:
+            verdict = await self._evaluate_inner(text)
+            span.set_attribute(
+                "guardrail.flags", ",".join(f.value for f in verdict.flags)
+            )
+            span.set_attribute("guardrail.blocked", verdict.blocked)
+            return verdict
+
+    async def _evaluate_inner(self, text: str) -> GuardrailVerdict:
         # Stage 1 — regex floor.
         base = scan_for_injection(text)
 
