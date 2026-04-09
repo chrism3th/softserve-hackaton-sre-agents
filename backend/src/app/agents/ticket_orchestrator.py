@@ -204,6 +204,15 @@ class TicketOrchestratorAgent(Agent):
                 label_ids=label_ids or None,
             )
 
+            # Append the working branch name to the description.
+            branch = f"fix/{issue['identifier'].lower()}"
+            description_with_branch = (
+                f"**Branch:** `{branch}`\n" + description
+            )
+            await linear.update_issue_description(
+                issue["id"], description_with_branch
+            )
+
         logger.info(
             "ticket.created",
             identifier=issue["identifier"],

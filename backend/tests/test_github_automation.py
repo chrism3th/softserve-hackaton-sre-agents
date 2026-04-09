@@ -326,7 +326,7 @@ class TestAutomationActions:
         agent.run.assert_awaited_once()
         request = agent.run.call_args.args[0]
         assert isinstance(request, AgentRequest)
-        assert request.context["linear_branch_name"] == "fix/investigate-outage"
+        assert request.context["linear_branch_name"] == "fix/tea-42"
 
     async def test_qa_action_invokes_agent_for_qa_transition(self, github_env: None) -> None:
         action = QAHandoffAutomationAction()

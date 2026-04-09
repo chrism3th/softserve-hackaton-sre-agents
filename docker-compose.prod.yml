@@ -32,16 +32,3 @@ services:
           memory: 1G
           cpus: "1.0"
 
-  frontend:
-    build:
-      # Context is the repo root so the Dockerfile can COPY infra/nginx/default.conf
-      context: .
-      dockerfile: frontend/Dockerfile
-    image: hackaton/frontend:${TAG:-latest}
-    ports:
-      - "8080:80"
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"

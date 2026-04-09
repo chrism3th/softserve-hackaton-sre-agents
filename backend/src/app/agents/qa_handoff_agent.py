@@ -43,6 +43,7 @@ class QAHandoffAgent(Agent):
                 iterations=1,
             )
 
+        settings = get_settings()
         title = f"[{context.linear_issue_id}] {context.linear_title}"
         body = "Auto-created from Linear QA state transition."
 
@@ -51,7 +52,7 @@ class QAHandoffAgent(Agent):
                 repo=context.repo,
                 title=title,
                 head_branch=context.linear_branch_name,
-                base_branch="main",
+                base_branch=settings.github_base_branch,
                 body=body,
             )
             pr_number = pr.number

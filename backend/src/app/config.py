@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     github_api_token: str = ""
     github_api_url: str = "https://api.github.com"
     github_repo: str = ""
+    github_base_branch: str = "main"
 
     # Phoenix tracing
     phoenix_collector_endpoint: str = "http://phoenix:6006"

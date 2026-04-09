@@ -156,3 +156,18 @@ class LinearClient:
         if not result["success"]:
             raise LinearError("issueCreate returned success=false")
         return dict(result["issue"])
+
+    async def update_issue_description(
+        self, issue_id: str, description: str
+    ) -> None:
+        """Update the description of an existing issue."""
+        data = await self._gql(
+            """
+            mutation Update($id: String!, $input: IssueUpdateInput!) {
+              issueUpdate(id: $id, input: $input) { success }
+            }
+            """,
+            {"id": issue_id, "input": {"description": description}},
+        )
+        if not data["issueUpdate"]["success"]:
+            raise LinearError("issueUpdate returned success=false")

@@ -62,18 +62,16 @@ async def _build_context(event: IssueStatusChangedEvent) -> dict[str, str | None
     return {
         "linear_issue_id": event.issue_identifier,
         "linear_title": event.issue_title,
-        "linear_branch_name": _branch_from_title(event.issue_title),
+        "linear_branch_name": _branch_from_identifier(event.issue_identifier),
         "from_state": event.previous_state.name,
         "to_state": event.current_state.name,
         "github_issue_url": github_url,
     }
 
 
-def _branch_from_title(issue_title: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", issue_title.lower()).strip("-")
-    if not slug:
-        slug = "issue"
-    return f"fix/{slug}"
+def _branch_from_identifier(identifier: str) -> str:
+    """Derive a branch name from the Linear issue identifier, e.g. TEA-19 → fix/tea-19."""
+    return f"fix/{identifier.lower()}"
 
 
 @action_registry.on(EventType.issue_status_changed)
