@@ -1,152 +1,281 @@
-# Next-Gen AI Agents — Hackathon Scaffold
+# SRE Incident Intake & Triage Agent
 
-A ready-to-go monorepo for the **SoftServe "Next Generation AI Agents"** hackathon.
-Python backend (FastAPI + agent scaffold), pluggable frontend (Vite/React), Postgres,
-Redis, and a `docker compose` setup that mirrors production locally.
+An automated multi-agent system that ingests incident reports (text + screenshots),
+triages them with LLM-powered analysis, creates tickets in Linear, detects duplicates,
+and keeps reporters informed via GitHub and email — all without human intervention.
 
-Built to let you focus on the **idea**, not the boilerplate.
+Built for the **SoftServe "Next Generation AI Agents"** hackathon.
 
-## What's in the box
+## The problem
 
-| | |
+On-call engineers waste time on manual triage: reading reports, assessing severity,
+creating tickets, checking for duplicates, and updating reporters. This system
+automates that entire pipeline so engineers can focus on fixing, not filing.
+
+## How it works
+
+```
+GitHub Issue ──webhook──▶ ┌───────────────────────────────┐
+                          │    TicketOrchestratorAgent     │
+API Request ──POST──────▶ │                               │
+                          │  1. GuardrailAgent  (security) │
+                          │  2. ImageAnalyzer   (vision)   │
+                          │  3. TriageDrafter   (severity)  │
+                          │  4. DedupAgent      (duplicates)│
+                          │  5. LinearClient    (ticket)    │
+                          └──────────┬────────────────────┘
+                                     │
+                          ┌──────────▼────────────────────┐
+                          │     Linear Webhook (state Δ)   │
+                          │                               │
+                          │  ▶ QAHandoffAgent (→ GitHub PR)│
+                          │  ▶ GitHubIssueCommenter (bot)  │
+                          │  ▶ NotifyReporter (email)      │
+                          └───────────────────────────────┘
+```
+
+**End-to-end flow:** submit → triage → ticket created → team notified → resolved → reporter notified
+
+## Agents
+
+| Agent | What it does |
 |---|---|
-| **Backend** | FastAPI · Python 3.12 · strict typing · pytest · ruff · mypy · structlog · Anthropic SDK |
-| **Frontend** | Vite · React 18 · TypeScript · Vitest (swap-friendly) |
-| **Infra** | docker-compose (dev + prod overlays) · Postgres 16 · Redis 7 · nginx |
-| **Agents** | Base protocol, registry, echo smoke-test agent, reference Claude agent |
-| **Skills** | 11 role-based Claude Code skills (SWE, Python, UX, DS, ML, Agents, DevOps, QA, PM, Tech writer, Security) |
-| **Tooling** | One `Makefile` for build/test/lint/up/down. Zero bespoke scripts. |
+| **TicketOrchestratorAgent** | Coordinates the full pipeline. Single entry point for all incidents. |
+| **GuardrailAgent** | Two-stage prompt injection defense: regex pre-filter + LLM classifier. |
+| **ImageAnalyzerAgent** | Claude Vision extracts captions, OCR text, and error signals from screenshots. |
+| **TriageDrafterAgent** | LLM-powered severity classification (P0-P3) with keyword fallback. |
+| **DedupAgent** | Semantic duplicate detection against existing Linear tickets. |
+| **QAHandoffAgent** | Auto-creates GitHub PR when ticket reaches QA state. |
+| **GitHubIssueCommenterAgent** | Posts status updates on GitHub issues as ticket state changes. |
 
-## Quickstart
+## Tech stack
 
-Requires: Docker Desktop (or Docker Engine) with Docker Compose v2.
+| Layer | Tools |
+|---|---|
+| **Backend** | FastAPI, Python 3.12, asyncio, Pydantic v2 |
+| **LLM** | Anthropic Claude (Sonnet 4.6) — multimodal (vision) |
+| **Database** | PostgreSQL 16 (async via SQLAlchemy + asyncpg) |
+| **Cache** | Redis 7 |
+| **Integrations** | Linear (GraphQL), GitHub (REST v3), Resend (email) |
+| **Observability** | OpenTelemetry + Arize Phoenix, structlog (JSON) |
+| **Infra** | Docker Compose (dev + prod overlays), Makefile |
+
+## Quick start
+
+> For detailed setup see [QUICKGUIDE.md](QUICKGUIDE.md).
 
 ```bash
-# 1. create your .env
-make init                            # copies .env.example -> .env
-$EDITOR .env                         # add ANTHROPIC_API_KEY (optional for echo agent)
+# 1. Clone and configure
+git clone https://github.com/<your-org>/softserve-hackaton-sre-agents.git
+cd softserve-hackaton-sre-agents
+make init                   # copies .env.example → .env
+$EDITOR .env                # fill in API keys
 
-# 2. build & run the full dev stack
+# 2. Start everything
+make up                     # builds + runs via docker compose (detached)
+
+# 3. Verify
+make smoke                  # health check
+```
+
+| Service | URL |
+|---|---|
+| Backend (Swagger) | http://localhost:8000/docs |
+| Phoenix (traces) | http://localhost:6006 |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
+
+> All `make` targets run through `docker compose` under the hood — see [Makefile](Makefile) for the full list.
+
+## Webhook setup guide
+
+The system uses two webhook integrations: **GitHub** (incident ingestion) and **Linear** (ticket state changes). Both require an HTTPS tunnel for local development.
+
+### Step 1: Start the stack and ngrok
+
+```bash
+# Terminal 1 — start services
 make up
 
-# 3. open the apps
-#    Frontend: http://localhost:5173
-#    Backend:  http://localhost:8000/docs
-#    Postgres: localhost:5432  (postgres/postgres/app)
-#    Redis:    localhost:6379
-
-# 4. smoke test
-make smoke
-
-# 5. run all tests
-make test
-
-# 6. stop everything
-make down
+# Terminal 2 — start HTTPS tunnel
+make ngrok
 ```
+
+ngrok will print a public URL like `https://abcd1234.ngrok-free.app`. Copy it — you'll need it for both webhooks.
+
+> You can also inspect webhook traffic at http://localhost:4040 (ngrok inspector).
+
+### Step 2: Configure GitHub webhook
+
+**Option A — Automatic (recommended):**
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/github/setup-webhook \
+  -H "Content-Type: application/json" \
+  -d '{"payload_url": "https://<your-ngrok-id>.ngrok-free.app/api/v1/tickets/github-webhook"}'
+```
+
+Response:
+```json
+{"created": true, "webhook_id": 12345678, "message": "Webhook created successfully"}
+```
+
+**Option B — Manual (via GitHub UI):**
+
+1. Go to `https://github.com/<owner>/<repo>/settings/hooks`
+2. Click **Add webhook**
+3. Fill in:
+   - **Payload URL:** `https://<your-ngrok-id>.ngrok-free.app/api/v1/tickets/github-webhook`
+   - **Content type:** `application/json`
+   - **Secret:** paste the value of `GITHUB_WEBHOOK_SECRET` from your `.env`
+   - **Events:** select "Issues" only (or "Let me select individual events" → check "Issues")
+4. Click **Add webhook**
+5. GitHub will send a ping — check `make logs` to confirm receipt
+
+### Step 3: Test GitHub webhook
+
+1. Go to `https://github.com/<owner>/<repo>/issues`
+2. Click **New issue**
+3. Write a title like: `Checkout API returning 500 errors`
+4. Add a body with details (attach a screenshot if you want to test vision)
+5. Submit the issue
+
+**What happens:**
+- Backend receives the `issues.opened` webhook
+- GuardrailAgent scans for prompt injection
+- ImageAnalyzerAgent extracts evidence from screenshots (if any)
+- TriageDrafterAgent classifies severity (P0-P3)
+- DedupAgent checks for existing duplicates in Linear
+- Linear ticket is created automatically
+- Bot comments on the GitHub issue with the ticket link
+
+**Where to see it:**
+- http://localhost:8000/docs → Swagger UI (API responses)
+- http://localhost:6006 → Phoenix (full trace of the pipeline)
+- `make logs-backend` → structured JSON logs
+- http://localhost:4040 → ngrok inspector (raw webhook payloads)
+- Your Linear workspace → the new ticket
+
+### Step 4: Configure Linear webhook
+
+1. Go to `https://linear.app/settings/api` → **Webhooks** section
+2. Click **Create webhook**
+3. Fill in:
+   - **URL:** `https://<your-ngrok-id>.ngrok-free.app/api/v1/webhooks/linear`
+   - **Events:** check "Issues" (create, update, remove)
+4. After creation, Linear shows a **Signing secret** — copy it
+5. Paste the secret in your `.env`:
+   ```
+   LINEAR_WEBHOOK_SECRET=<the-signing-secret-from-linear>
+   ```
+6. Restart the backend:
+   ```bash
+   make down && make up
+   ```
+
+### Step 5: Test Linear webhook (full loop)
+
+1. Open your Linear workspace
+2. Find the ticket that was auto-created in Step 3
+3. Move it through states:
+   - **Backlog → In Progress** → bot comments on GitHub: "Your ticket is now **In Progress**"
+   - **In Progress → In Review** → bot comments: "Your ticket is now **In Review**"
+   - **In Review → Done** → bot comments: "Your ticket has been marked as **Done**"
+   - Moving to **QA** → auto-creates a GitHub PR and requests Copilot review
+
+**Where to see it:**
+- The original GitHub issue → bot comments appear
+- http://localhost:6006 → traces for each webhook event
+- `make logs-backend` → events like `github_issue_commenter.comment_posted`
+
+### Step 6: Test direct API ingestion (no webhooks needed)
+
+You can also submit incidents directly without GitHub:
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/tickets/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Database connection pool exhausted",
+    "body": "PostgreSQL max_connections reached. All API requests timing out since 14:00 UTC.",
+    "reporter": "oncall@example.com",
+    "images": []
+  }' | jq .
+```
+
+### Webhook endpoints summary
+
+| Webhook | Endpoint | Auth header | Secret env var |
+|---|---|---|---|
+| GitHub Issues | `POST /api/v1/tickets/github-webhook` | `X-Hub-Signature-256` | `GITHUB_WEBHOOK_SECRET` |
+| Linear Issues | `POST /api/v1/webhooks/linear` | `Linear-Signature` | `LINEAR_WEBHOOK_SECRET` |
+| GitHub setup | `POST /api/v1/github/setup-webhook` | — (uses `GITHUB_API_TOKEN`) | `GITHUB_WEBHOOK_SECRET` |
+
+### URLs you'll use during the demo
+
+| What | URL |
+|---|---|
+| Swagger UI (API docs + testing) | http://localhost:8000/docs |
+| Phoenix (traces + LLM calls) | http://localhost:6006 |
+| ngrok inspector (webhook payloads) | http://localhost:4040 |
+| GitHub issues (submit incidents) | `https://github.com/<owner>/<repo>/issues` |
+| GitHub webhooks config | `https://github.com/<owner>/<repo>/settings/hooks` |
+| Linear workspace (tickets) | `https://linear.app` |
+| Linear webhooks config | `https://linear.app/settings/api` → Webhooks |
 
 ## Project layout
 
 ```
 .
-├── .claude/skills/         # Role-based Claude Code skills
-├── backend/                # FastAPI app (src-layout)
+├── backend/
 │   ├── src/app/
-│   │   ├── api/            # HTTP routes
-│   │   ├── agents/         # Agent protocol + implementations + registry
-│   │   ├── core/           # Cross-cutting (logging, errors)
-│   │   ├── models/         # ORM models (add as needed)
-│   │   ├── schemas/        # Pydantic schemas (add as needed)
-│   │   ├── services/       # Domain services (add as needed)
+│   │   ├── agents/         # All agent implementations + prompts
+│   │   ├── api/            # FastAPI routes (tickets, webhooks, github, agents)
+│   │   ├── core/           # Logging, observability, errors
+│   │   ├── integrations/   # Linear client + parser, GitHub client
+│   │   ├── services/       # Domain services (notifications, dispatch)
+│   │   ├── tickets/        # Guardrails implementation
 │   │   ├── config.py       # Settings (pydantic-settings)
-│   │   └── main.py         # FastAPI factory + lifespan
-│   ├── tests/              # pytest
-│   ├── Dockerfile          # multi-stage prod image
-│   └── Dockerfile.dev      # hot-reload dev image
-├── frontend/               # Vite + React + TS (swap-friendly)
-│   ├── src/
-│   │   ├── api/            # Typed API client
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── Dockerfile          # nginx-served SPA build
-│   └── Dockerfile.dev      # vite dev server
-├── infra/
-│   ├── nginx/              # SPA + reverse proxy config
-│   └── postgres/           # init.sql
+│   │   └── main.py         # FastAPI app factory + lifespan
+│   ├── tests/              # 70 tests (pytest + respx)
+│   ├── Dockerfile          # Multi-stage prod image
+│   └── Dockerfile.dev      # Hot-reload dev image
 ├── docs/                   # Architecture, getting-started, ADRs
 ├── docker-compose.yml      # Base topology
-├── docker-compose.dev.yml  # Dev overlay (mounts, hot-reload, ports)
-├── docker-compose.prod.yml # Prod-like overlay (built images, limits)
-├── Makefile                # Entry point for everything
-├── CLAUDE.md               # Instructions for Claude Code
-└── .env.example
+├── docker-compose.dev.yml  # Dev overlay (mounts, hot-reload)
+├── docker-compose.prod.yml # Prod overlay (limits, built images)
+├── Makefile                # Single entry point (wraps docker compose)
+├── AGENTS_USE.md           # Agent documentation
+├── SCALING.md              # Scalability analysis
+├── QUICKGUIDE.md           # Step-by-step run guide
+└── .env.example            # Environment template
 ```
 
 ## Make targets
 
 ```
-make up               # dev stack (hot-reload), detached
-make up-fg            # dev stack, foreground (see logs)
-make down             # stop dev stack
-make up-prod          # production-like stack
-make logs             # follow all logs
-make shell-backend    # bash inside backend container
-make shell-db         # psql inside db container
-
-make build            # build dev images
-make build-prod       # build prod images
-
-make test             # backend + frontend tests
-make test-backend-cov # backend tests with coverage
-make lint             # ruff + mypy + eslint + tsc
-make format           # auto-format all code
-make check            # lint + tests (what CI should run)
-make smoke            # curl health endpoints
-
-make clean            # remove caches / build artifacts
-make nuke             # full reset, including DB volumes
+make up / make down       Start / stop dev stack (docker compose)
+make test                 Run tests in container
+make lint                 ruff + mypy
+make check                lint + tests
+make smoke                Health check endpoints
+make logs                 Tail all service logs
+make logs-backend         Backend logs only (structured JSON)
+make shell-backend        Shell into backend container
+make ngrok                Start HTTPS tunnel for webhooks
+make help                 Full target list
 ```
 
-Run `make help` for the full list.
+## Documentation
 
-## Swapping the frontend
-
-Nothing ties the backend to React. To replace the frontend:
-
-1. Delete `frontend/src/*` (keep `Dockerfile.dev` and `Dockerfile` or edit them).
-2. Rebuild: `make build-frontend`.
-
-The backend API contract (`/api/v1/agents`) stays the same; just point your new
-frontend's API client at it. nginx (`infra/nginx/default.conf`) proxies `/api/*`
-to the backend service in prod builds.
-
-If you prefer Next.js, SvelteKit, Solid, vanilla HTML — just replace the
-`frontend/` contents and adjust `frontend/Dockerfile*`. `docker-compose.*.yml`
-does not need to change as long as the dev server listens on port 5173 and the
-prod build is served on port 80.
-
-## Using the Claude skills
-
-The `.claude/skills/` directory contains 11 role-based skills that steer
-Claude Code toward the right mindset for each task. They're auto-discovered.
-
-Examples:
-
-- "Help me implement a RAG tool for this agent" → `ai-agent-architect`
-- "Refactor this service to be testable" → `software-engineer` + `python-developer`
-- "Review this login flow" → `security-engineer`
-- "Design the dashboard for the judges" → `ux-designer`
-- "Write the README" → `technical-writer`
-- "Set up the CI pipeline" → `devops-engineer`
-
-See `.claude/skills/README.md` for the full list.
-
-## CLAUDE.md
-
-`CLAUDE.md` (next to this README) sets project-wide defaults for Claude Code:
-package manager choices, test commands, style rules, and what-good-looks-like.
-Open it, tailor it to your team's preferences, commit it.
+| File | Purpose |
+|---|---|
+| [QUICKGUIDE.md](QUICKGUIDE.md) | Step-by-step setup and testing |
+| [AGENTS_USE.md](AGENTS_USE.md) | Agent implementation details, observability evidence, security |
+| [SCALING.md](SCALING.md) | Scalability analysis and decisions |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and design |
+| [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Developer onboarding |
 
 ## License
 
-MIT. Go win.
+MIT
