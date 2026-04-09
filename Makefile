@@ -25,8 +25,8 @@ init: ## Copy .env.example to .env if missing
 	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env — edit it now."; else echo ".env already exists."; fi
 
 .PHONY: install-backend
-install-backend: ## Install backend deps locally (outside docker)
-	cd backend && python -m pip install -r requirements-dev.txt && python -m pip install -e .
+install-backend: ## Install backend deps locally (outside docker) with uv
+	cd backend && uv sync --locked --extra dev
 
 .PHONY: install-frontend
 install-frontend: ## Install frontend deps locally (outside docker)
@@ -137,6 +137,32 @@ test-backend-integration: ## Run backend integration tests (needs DB + Redis)
 .PHONY: test-frontend
 test-frontend: ## Run frontend unit tests
 	$(COMPOSE_DEV) run --rm --no-deps frontend npm test
+
+##@ Database
+
+# MSG is required for migrate-new: make migrate-new MSG="describe change"
+MSG ?=
+
+.PHONY: migrate
+migrate: ## Apply all pending migrations (alembic upgrade head)
+	$(COMPOSE_DEV) run --rm backend alembic upgrade head
+
+.PHONY: migrate-down
+migrate-down: ## Roll back the last migration (alembic downgrade -1)
+	$(COMPOSE_DEV) run --rm backend alembic downgrade -1
+
+.PHONY: migrate-new
+migrate-new: ## Generate a new migration: make migrate-new MSG="add users table"
+	@[ -n "$(MSG)" ] || (echo "Error: MSG is required.  Usage: make migrate-new MSG=\"describe change\"" && false)
+	$(COMPOSE_DEV) run --rm backend alembic revision --autogenerate -m "$(MSG)"
+
+.PHONY: migrate-history
+migrate-history: ## Show full migration history
+	$(COMPOSE_DEV) run --rm backend alembic history --verbose
+
+.PHONY: migrate-current
+migrate-current: ## Show the current DB revision
+	$(COMPOSE_DEV) run --rm backend alembic current
 
 ##@ Quality
 

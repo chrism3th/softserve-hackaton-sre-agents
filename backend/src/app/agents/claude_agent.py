@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from anthropic.types.text_block import TextBlock
+
 from app.agents.base import Agent, AgentRequest, AgentResponse
 from app.config import get_settings
 from app.core.logging import get_logger
@@ -60,9 +62,7 @@ class ClaudeAgent(Agent):
             messages=[{"role": "user", "content": request.input}],
         )
 
-        text = "".join(
-            block.text for block in message.content if getattr(block, "type", "") == "text"
-        )
+        text = "".join(block.text for block in message.content if isinstance(block, TextBlock))
 
         metadata: dict[str, Any] = {
             "model": message.model,

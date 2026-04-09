@@ -22,6 +22,7 @@ from app.core.logging import get_logger
 from app.core.observability import get_tracer
 from app.tickets.linear_client import LinearClient
 from app.tickets.models import (
+    GuardrailFlag,
     ImageInsight,
     IncidentDTO,
     IncidentSource,
@@ -204,7 +205,7 @@ class TicketOrchestratorAgent(Agent):
     def _render_description(
         incident: IncidentDTO,
         summary: str,
-        flags: list,
+        flags: list[GuardrailFlag],
         insights: list[ImageInsight],
     ) -> str:
         parts = [

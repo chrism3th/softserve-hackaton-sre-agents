@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
-
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.crud.prompt_injection_log import crud_prompt_injection_log
 from app.tickets.models import GuardrailFlag, IncidentSource
 
 
@@ -19,20 +17,11 @@ async def log_injection_attempt(
     flags: list[GuardrailFlag],
     blocked: bool,
 ) -> None:
-    await session.execute(
-        text(
-            """
-            INSERT INTO prompt_injection_log
-                (source, reporter, raw_input, flags, blocked)
-            VALUES (:source, :reporter, :raw_input, CAST(:flags AS JSONB), :blocked)
-            """
-        ),
-        {
-            "source": source.value,
-            "reporter": reporter,
-            "raw_input": raw_input,
-            "flags": json.dumps([f.value for f in flags]),
-            "blocked": blocked,
-        },
+    await crud_prompt_injection_log.log_attempt(
+        session,
+        source=source,
+        reporter=reporter,
+        raw_input=raw_input,
+        flags=flags,
+        blocked=blocked,
     )
-    await session.commit()

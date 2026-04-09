@@ -54,7 +54,7 @@ def init_tracing() -> None:
             endpoint=settings.phoenix_collector_endpoint,
             project=settings.phoenix_project_name,
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning("tracing.init_failed", error=str(e))
     finally:
         _initialized = True

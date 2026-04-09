@@ -17,3 +17,4 @@ tests/
 .gitignore
 Dockerfile*
 *.md
+!src/app/agents/prompts/*.md

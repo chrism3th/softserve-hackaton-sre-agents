@@ -107,7 +107,7 @@ But even in hackathon mode:
 
 ## What not to do
 
-- Don't add new Python dependencies without updating `pyproject.toml` *and* `requirements.txt`.
+- Don't add new Python dependencies without updating `backend/pyproject.toml` and refreshing `backend/uv.lock` (run `uv lock` in `backend/`).
 - Don't add a CI pipeline unless asked. The `Makefile` *is* the CI target.
 - Don't create files in the repo root. Use `backend/`, `frontend/`, `infra/`, `docs/`.
 - Don't touch `.env` automatically. Print the suggested change and let the user apply it.

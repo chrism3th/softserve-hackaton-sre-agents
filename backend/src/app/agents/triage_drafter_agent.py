@@ -68,6 +68,7 @@ class TriageDrafterAgent(Agent):
 
         try:
             from anthropic import AsyncAnthropic
+            from anthropic.types.text_block import TextBlock
 
             client = AsyncAnthropic(
                 api_key=settings.anthropic_api_key,
@@ -83,11 +84,9 @@ class TriageDrafterAgent(Agent):
                 system=load_prompt("triage_drafter"),
                 messages=[{"role": "user", "content": user_payload}],
             )
-            raw = "".join(
-                b.text for b in message.content if getattr(b, "type", "") == "text"
-            )
+            raw = "".join(b.text for b in message.content if isinstance(b, TextBlock))
             return TriageDraft.model_validate_json(_extract_json(raw))
-        except (ValidationError, ValueError, Exception) as e:  # noqa: BLE001
+        except (ValidationError, ValueError, Exception) as e:
             logger.warning("triage_drafter.fallback", error=str(e))
             return self._fallback(incident)
 

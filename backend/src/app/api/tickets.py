@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -57,14 +58,14 @@ async def ingest(payload: IngestPayload) -> OrchestratorResult:
 
 @router.post(
     "/github-webhook",
-    response_model=OrchestratorResult | dict,
+    response_model=OrchestratorResult | dict[str, Any],
     summary="GitHub `issues` webhook",
 )
 async def github_webhook(
     request: Request,
     x_hub_signature_256: str | None = Header(default=None),
     x_github_event: str | None = Header(default=None),
-) -> OrchestratorResult | dict:
+) -> OrchestratorResult | dict[str, Any]:
     body = await request.body()
     _verify_signature(body, x_hub_signature_256)
 

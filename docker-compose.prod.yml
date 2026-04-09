@@ -3,6 +3,9 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
+  migrate:
+    image: hackaton/backend:${TAG:-latest}
+
   db:
     deploy:
       resources:
