@@ -208,9 +208,18 @@ class TicketOrchestratorAgent(Agent):
         flags: list[GuardrailFlag],
         insights: list[ImageInsight],
     ) -> str:
+        github_issue_url = ""
+        if incident.source is IncidentSource.github_issue:
+            github_issue_url = str(incident.raw.get("github_issue_url") or "")
+
         parts = [
             f"**Source:** {incident.source.value}",
             f"**Reporter:** {incident.reporter or 'unknown'}",
+        ]
+        if github_issue_url:
+            parts += [f"**GitHub Issue:** {github_issue_url}"]
+
+        parts += [
             "",
             "## Summary",
             summary,
