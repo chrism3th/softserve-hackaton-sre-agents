@@ -39,15 +39,15 @@ def _make_event(
 class TestRenderTemplate:
     def test_done_subject_and_body(self) -> None:
         subject, html = _render_template("TEA-42", "Fire alert", "Done")
-        assert "completada" in subject
+        assert "completed" in subject
         assert "TEA-42" in subject
-        assert "Done" in html or "completada" in html.lower()
+        assert "Done" in html or "completed" in html.lower()
         assert "TEA-42" in html
         assert "Fire alert" in html
 
     def test_ready_to_start_subject_and_body(self) -> None:
         subject, html = _render_template("TEA-42", "Fire alert", "Ready to Start")
-        assert "lista para comenzar" in subject
+        assert "ready to start" in subject
         assert "TEA-42" in subject
         assert "Ready to Start" in html
         assert "Fire alert" in html
