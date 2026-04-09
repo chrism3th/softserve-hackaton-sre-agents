@@ -77,7 +77,12 @@ services:
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-6}
       LINEAR_API_KEY: ${LINEAR_API_KEY:-}
       LINEAR_TEAM_KEY: ${LINEAR_TEAM_KEY:-TEA}
+      LINEAR_WEBHOOK_SECRET: ${LINEAR_WEBHOOK_SECRET:-}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_API_TOKEN: ${GITHUB_API_TOKEN:-}
+      GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
+      GITHUB_REPO: ${GITHUB_REPO:-}
+      GITHUB_BASE_BRANCH: ${GITHUB_BASE_BRANCH:-main}
       PHOENIX_COLLECTOR_ENDPOINT: ${PHOENIX_COLLECTOR_ENDPOINT:-http://phoenix:6006}
       PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME:-sre-agents}
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
@@ -90,13 +95,7 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    networks: [backend_net, frontend_net]
-    restart: unless-stopped
-
-  frontend:
-    depends_on:
-      - backend
-    networks: [frontend_net]
+    networks: [backend_net]
     restart: unless-stopped
 
 volumes:
@@ -106,6 +105,4 @@ volumes:
 
 networks:
   backend_net:
-    driver: bridge
-  frontend_net:
     driver: bridge

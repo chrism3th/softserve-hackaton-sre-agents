@@ -13,6 +13,7 @@ Image analysis is a TODO hook (the dataclass already carries images).
 from __future__ import annotations
 
 from app.agents.base import Agent, AgentRequest, AgentResponse
+from app.agents.dedup_agent import DedupAgent
 from app.agents.guardrail_agent import GuardrailAgent
 from app.agents.image_analyzer_agent import ImageAnalyzerAgent
 from app.agents.triage_drafter_agent import TriageDrafterAgent
@@ -49,6 +50,7 @@ class TicketOrchestratorAgent(Agent):
         self._guardrail = GuardrailAgent()
         self._image_analyzer = ImageAnalyzerAgent()
         self._drafter = TriageDrafterAgent()
+        self._dedup = DedupAgent()
 
     async def run(self, request: AgentRequest) -> AgentResponse:
         incident = self._coerce_incident(request)
@@ -156,30 +158,59 @@ class TicketOrchestratorAgent(Agent):
             cleaned, draft.summary, verdict.flags, insights
         )
 
-        # 3 + 4. Dedup + create in Linear.
+        # 3 + 4. Dedup check + create in Linear (always create).
         async with LinearClient() as linear:
             team_id = await linear.get_team_id(settings.linear_team_key)
             dups = await linear.search_issues(team_id, term=draft.title[:60], limit=5)
-            dedup_of = dups[0]["identifier"] if dups else None
 
-            if dedup_of:
-                logger.info("ticket.dedup_hit", existing=dedup_of)
-                return OrchestratorResult(
-                    linear_identifier=dups[0]["identifier"],
-                    linear_url=dups[0]["url"],
-                    severity=draft.severity,
-                    score=draft.score,
-                    dedup_of=dedup_of,
-                    guardrail_flags=verdict.flags,
-                    title=draft.title,
-                    description=description,
+            dedup_of: str | None = None
+            label_ids: list[str] = []
+
+            if dups:
+                dedup_result = await self._dedup.evaluate(
+                    {
+                        "new_title": draft.title,
+                        "new_body": enriched.body,
+                        "candidates": dups,
+                    }
                 )
+
+                if dedup_result.is_duplicate:
+                    dedup_of = dedup_result.duplicate_of_identifier
+                    logger.info(
+                        "ticket.dedup_hit",
+                        existing=dedup_of,
+                        reason=dedup_result.reason,
+                    )
+                    # Add duplicate reference to the description.
+                    dup_url = dedup_result.duplicate_of_url or ""
+                    dup_ref = dedup_of or "unknown"
+                    description = (
+                        f"**Possible duplicate of:** [{dup_ref}]({dup_url})\n\n"
+                        + description
+                    )
+                    # Attach the "duplicate" label if it exists.
+                    dup_label_id = await linear.find_label_by_name(
+                        team_id, "duplicate"
+                    )
+                    if dup_label_id:
+                        label_ids.append(dup_label_id)
 
             issue = await linear.create_issue(
                 team_id=team_id,
                 title=draft.title,
                 description=description,
                 priority=_PRIORITY_MAP[draft.severity],
+                label_ids=label_ids or None,
+            )
+
+            # Append the working branch name to the description.
+            branch = f"fix/{issue['identifier'].lower()}"
+            description_with_branch = (
+                f"**Branch:** `{branch}`\n" + description
+            )
+            await linear.update_issue_description(
+                issue["id"], description_with_branch
             )
 
         logger.info(
@@ -187,6 +218,7 @@ class TicketOrchestratorAgent(Agent):
             identifier=issue["identifier"],
             severity=draft.severity.value,
             score=draft.score,
+            dedup_of=dedup_of,
             guardrail_flags=[f.value for f in verdict.flags],
         )
 
@@ -195,7 +227,7 @@ class TicketOrchestratorAgent(Agent):
             linear_url=issue["url"],
             severity=draft.severity,
             score=draft.score,
-            dedup_of=None,
+            dedup_of=dedup_of,
             guardrail_flags=verdict.flags,
             title=draft.title,
             description=description,
@@ -208,9 +240,18 @@ class TicketOrchestratorAgent(Agent):
         flags: list[GuardrailFlag],
         insights: list[ImageInsight],
     ) -> str:
+        github_issue_url = ""
+        if incident.source is IncidentSource.github_issue:
+            github_issue_url = str(incident.raw.get("github_issue_url") or "")
+
         parts = [
             f"**Source:** {incident.source.value}",
             f"**Reporter:** {incident.reporter or 'unknown'}",
+        ]
+        if github_issue_url:
+            parts += [f"**GitHub Issue:** {github_issue_url}"]
+
+        parts += [
             "",
             "## Summary",
             summary,

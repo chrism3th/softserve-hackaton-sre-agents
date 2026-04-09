@@ -40,6 +40,7 @@ def parse_webhook(payload: LinearWebhookPayload) -> DomainEvent | None:
         issue_id=data.id,
         issue_identifier=data.identifier,
         issue_title=data.title,
+        issue_description=data.description,
         team_key=data.team.key if data.team else "",
         occurred_at=occurred_at,
         raw=payload.model_dump(),
