@@ -50,6 +50,9 @@ class Settings(BaseSettings):
 
     # GitHub
     github_webhook_secret: str = ""
+    github_api_token: str = ""
+    github_api_url: str = "https://api.github.com"
+    github_repo: str = ""
 
     # Phoenix tracing
     phoenix_collector_endpoint: str = "http://phoenix:6006"
