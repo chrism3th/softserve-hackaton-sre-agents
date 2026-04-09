@@ -20,8 +20,14 @@ class CRUDBase(Generic[ModelT]):
         self._model = model
 
     async def create(self, session: AsyncSession, **kwargs: Any) -> ModelT:
-        """Persist a new row and commit."""
+        """Stage a new row, flush to DB, and refresh server-generated fields.
+
+        Does NOT commit. The caller (or the session context manager) owns the
+        transaction boundary, which allows multiple writes to be composed into
+        a single atomic transaction.
+        """
         instance: ModelT = self._model(**kwargs)
         session.add(instance)
-        await session.commit()
+        await session.flush()
+        await session.refresh(instance)
         return instance

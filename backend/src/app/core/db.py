@@ -40,13 +40,20 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency that yields a session per request."""
-    async with get_sessionmaker()() as session:
+    """FastAPI dependency that yields a transactional session per request.
+
+    Commits on clean exit; rolls back automatically on exception.
+    """
+    async with get_sessionmaker().begin() as session:
         yield session
 
 
 @asynccontextmanager
 async def session_scope() -> AsyncIterator[AsyncSession]:
-    """Context-manager variant for use outside request handlers."""
-    async with get_sessionmaker()() as session:
+    """Context-manager variant for use outside request handlers.
+
+    Commits on clean exit; rolls back automatically on exception.
+    Callers should NOT call session.commit() themselves.
+    """
+    async with get_sessionmaker().begin() as session:
         yield session

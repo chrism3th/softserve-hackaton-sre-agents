@@ -11,6 +11,17 @@ services:
     ports:
       - "6379:6379"
 
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/alembic:/app/alembic
+      - ./backend/alembic.ini:/app/alembic.ini
+      - ./backend/pyproject.toml:/app/pyproject.toml
+      - ./backend/uv.lock:/app/uv.lock
+
   backend:
     build:
       context: ./backend
