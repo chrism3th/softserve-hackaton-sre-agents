@@ -138,6 +138,32 @@ test-backend-integration: ## Run backend integration tests (needs DB + Redis)
 test-frontend: ## Run frontend unit tests
 	$(COMPOSE_DEV) run --rm --no-deps frontend npm test
 
+##@ Database
+
+# MSG is required for migrate-new: make migrate-new MSG="describe change"
+MSG ?=
+
+.PHONY: migrate
+migrate: ## Apply all pending migrations (alembic upgrade head)
+	$(COMPOSE_DEV) run --rm backend alembic upgrade head
+
+.PHONY: migrate-down
+migrate-down: ## Roll back the last migration (alembic downgrade -1)
+	$(COMPOSE_DEV) run --rm backend alembic downgrade -1
+
+.PHONY: migrate-new
+migrate-new: ## Generate a new migration: make migrate-new MSG="add users table"
+	@[ -n "$(MSG)" ] || (echo "Error: MSG is required.  Usage: make migrate-new MSG=\"describe change\"" && false)
+	$(COMPOSE_DEV) run --rm backend alembic revision --autogenerate -m "$(MSG)"
+
+.PHONY: migrate-history
+migrate-history: ## Show full migration history
+	$(COMPOSE_DEV) run --rm backend alembic history --verbose
+
+.PHONY: migrate-current
+migrate-current: ## Show the current DB revision
+	$(COMPOSE_DEV) run --rm backend alembic current
+
 ##@ Quality
 
 .PHONY: lint

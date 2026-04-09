@@ -57,7 +57,6 @@ docker-compose.override.yml
 *.sqlite
 *.sqlite3
 data/
-models/
 *.pkl
 *.joblib
 
