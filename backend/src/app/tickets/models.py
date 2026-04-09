@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class IncidentSource(str, Enum):
+class IncidentSource(StrEnum):
     api = "api"
     github_issue = "github_issue"
 
@@ -35,17 +35,17 @@ class IncidentDTO(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     P0 = "P0"
     P1 = "P1"
     P2 = "P2"
     P3 = "P3"
 
 
-class GuardrailFlag(str, Enum):
+class GuardrailFlag(StrEnum):
     instruction_override = "instruction_override"
     role_hijack = "role_hijack"
-    secret_exfil = "secret_exfil"
+    secret_exfil = "secret_exfil"  # noqa: S105
     code_fence_injection = "code_fence_injection"
     suspicious_url = "suspicious_url"
 

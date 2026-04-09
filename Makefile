@@ -25,8 +25,8 @@ init: ## Copy .env.example to .env if missing
 	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env — edit it now."; else echo ".env already exists."; fi
 
 .PHONY: install-backend
-install-backend: ## Install backend deps locally (outside docker)
-	cd backend && python -m pip install -r requirements-dev.txt && python -m pip install -e .
+install-backend: ## Install backend deps locally (outside docker) with uv
+	cd backend && uv sync --locked --extra dev
 
 .PHONY: install-frontend
 install-frontend: ## Install frontend deps locally (outside docker)

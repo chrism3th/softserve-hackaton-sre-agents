@@ -6,7 +6,7 @@ search issues for dedup, and create issues.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import structlog
@@ -59,7 +59,7 @@ class LinearClient:
         if "errors" in payload:
             logger.error("linear.graphql_error", errors=payload["errors"])
             raise LinearError(str(payload["errors"]))
-        return payload["data"]
+        return cast(dict[str, Any], payload["data"])
 
     async def get_team_id(self, key: str) -> str:
         data = await self._gql(

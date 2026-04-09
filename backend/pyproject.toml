@@ -2,7 +2,7 @@
 name = "hackaton-backend"
 version = "0.1.0"
 description = "AI Agents hackathon backend"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
@@ -17,6 +17,11 @@ dependencies = [
     "python-json-logger>=2.0.7",
     "tenacity>=9.0.0",
     "anthropic>=0.39.0",
+    "arize-phoenix-otel>=0.6.0",
+    "openinference-instrumentation-anthropic>=0.1.10",
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.27.0",
 ]
 
 [project.optional-dependencies]
@@ -39,9 +44,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+app = ["agents/prompts/*.md"]
+
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -67,17 +75,13 @@ ignore = ["S101"]  # allow `assert` in tests
 quote-style = "double"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 no_implicit_optional = true
 plugins = ["pydantic.mypy"]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

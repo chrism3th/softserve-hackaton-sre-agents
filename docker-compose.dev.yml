@@ -19,6 +19,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/tests:/app/tests
       - ./backend/pyproject.toml:/app/pyproject.toml
+      - ./backend/uv.lock:/app/uv.lock
     ports:
       - "8000:8000"
     environment:

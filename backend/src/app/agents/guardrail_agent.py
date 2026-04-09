@@ -75,7 +75,7 @@ class GuardrailAgent(Agent):
 
         try:
             llm = await self._llm_classify(text)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning("guardrail.llm_failed", error=str(e))
             return base
 
@@ -95,6 +95,7 @@ class GuardrailAgent(Agent):
 
     async def _llm_classify(self, text: str) -> _LLMVerdict:
         from anthropic import AsyncAnthropic
+        from anthropic.types.text_block import TextBlock
 
         settings = get_settings()
         client = AsyncAnthropic(
@@ -112,9 +113,7 @@ class GuardrailAgent(Agent):
                 }
             ],
         )
-        raw = "".join(
-            b.text for b in message.content if getattr(b, "type", "") == "text"
-        )
+        raw = "".join(b.text for b in message.content if isinstance(b, TextBlock))
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         payload = match.group(0) if match else raw
         try:

@@ -16,8 +16,8 @@ hosts and the standard image-hosting CDNs we expect from real reporters.
 
 from __future__ import annotations
 
-import json
 import re
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, ValidationError
@@ -93,6 +93,7 @@ class ImageAnalyzerAgent(Agent):
 
         try:
             from anthropic import AsyncAnthropic
+            from anthropic.types.text_block import TextBlock
 
             settings = get_settings()
             client = AsyncAnthropic(
@@ -103,25 +104,26 @@ class ImageAnalyzerAgent(Agent):
                 model=settings.llm_model,
                 max_tokens=600,
                 system=load_prompt("image_analyzer"),
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {"type": "url", "url": image.url},
-                            },
-                            {
-                                "type": "text",
-                                "text": "Analyze this incident attachment.",
-                            },
-                        ],
-                    }
-                ],
+                messages=cast(
+                    Any,
+                    [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {"type": "url", "url": image.url},
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "Analyze this incident attachment.",
+                                },
+                            ],
+                        }
+                    ],
+                ),
             )
-            raw = "".join(
-                b.text for b in message.content if getattr(b, "type", "") == "text"
-            )
+            raw = "".join(b.text for b in message.content if isinstance(b, TextBlock))
             parsed = _LLMImageOutput.model_validate_json(_extract_json(raw))
             return ImageInsight(
                 url=image.url,
@@ -132,7 +134,7 @@ class ImageAnalyzerAgent(Agent):
         except ValidationError as e:
             logger.warning("image_analyzer.parse_failed", error=str(e))
             return ImageInsight(url=image.url, error="parse_failed")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning("image_analyzer.failed", error=str(e), url=image.url)
             return ImageInsight(url=image.url, error=str(e)[:200])
 
