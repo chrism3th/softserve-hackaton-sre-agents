@@ -55,6 +55,9 @@ services:
   migrate:
     # One-shot service: applies pending Alembic migrations then exits.
     # backend depends on this completing successfully before it starts.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: alembic upgrade head
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-app}
@@ -78,6 +81,8 @@ services:
       PHOENIX_COLLECTOR_ENDPOINT: ${PHOENIX_COLLECTOR_ENDPOINT:-http://phoenix:6006}
       PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME:-sre-agents}
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-onboarding@resend.dev}
     depends_on:
       db:
         condition: service_healthy

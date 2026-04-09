@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     linear_api_key: str = ""
     linear_team_key: str = "TEA"
     linear_api_url: str = "https://api.linear.app/graphql"
+    linear_webhook_secret: str = ""
 
     # GitHub
     github_webhook_secret: str = ""
@@ -53,6 +54,11 @@ class Settings(BaseSettings):
     # Phoenix tracing
     phoenix_collector_endpoint: str = "http://phoenix:6006"
     phoenix_project_name: str = "sre-agents"
+
+    # Resend
+    resend_api_key: str = ""
+    # Verified sender address. In dev use Resend's shared test address.
+    email_from: str = "onboarding@resend.dev"
 
 
 @lru_cache(maxsize=1)
