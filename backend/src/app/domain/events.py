@@ -50,3 +50,6 @@ class IssueStatusChangedEvent(DomainEvent):
     event_type: EventType = EventType.issue_status_changed
     previous_state: IssueState
     current_state: IssueState
+    # Email of the issue creator (reporter). None when Linear doesn't expose
+    # it (e.g. bot-created issues or restricted org privacy settings).
+    reporter_email: str | None = None

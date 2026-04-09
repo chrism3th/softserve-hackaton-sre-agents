@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     phoenix_collector_endpoint: str = "http://phoenix:6006"
     phoenix_project_name: str = "sre-agents"
 
+    # Resend
+    resend_api_key: str = ""
+    # Verified sender address. In dev use Resend's shared test address.
+    email_from: str = "onboarding@resend.dev"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

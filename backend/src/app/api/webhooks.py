@@ -67,6 +67,13 @@ async def linear_webhook(
         webhook_id=payload.webhookId,
     )
 
+    if payload.action == "update":
+        logger.debug(
+            "linear_webhook.update_detail",
+            updated_from=payload.updatedFrom.model_dump() if payload.updatedFrom else None,
+            current_state=payload.data.state.model_dump() if payload.data.state else None,
+        )
+
     event = parse_webhook(payload)
 
     if event is None:

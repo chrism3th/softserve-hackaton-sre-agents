@@ -34,24 +34,35 @@ class LinearTeamDTO(BaseModel):
     name: str
 
 
+class LinearCreatorDTO(BaseModel):
+    id: str
+    name: str | None = None
+    email: str | None = None
+
+
 class LinearIssueDataDTO(BaseModel):
     id: str
     identifier: str  # e.g. "TEA-123"
     title: str
     state: LinearStateDTO | None = None
     team: LinearTeamDTO | None = None
+    creator: LinearCreatorDTO | None = None
 
 
 class LinearUpdatedFromDTO(BaseModel):
     """Previous values for fields that changed in an 'update' event.
 
-    For a state transition, Linear includes the full previous state object
-    (id + name), not just the ID.
+    Linear sends the *ID* of the previous related entity, not the full
+    nested object.  For a state change that means ``stateId`` is present.
+    Some integrations also return a nested ``state`` object — we handle
+    both so we're resilient to changes in Linear's webhook format.
     """
 
+    # Linear's actual format for a state change: just the previous state ID.
+    stateId: str | None = None
+    # Occasionally present as a full nested object (integration-dependent).
     state: LinearStateDTO | None = None
 
-    # Accept other changed-field snapshots we don't care about yet.
     model_config = {"extra": "ignore"}
 
 
