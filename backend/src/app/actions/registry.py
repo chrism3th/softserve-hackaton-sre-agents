@@ -24,14 +24,14 @@ To add a new action, create it anywhere that is imported at startup
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Callable
+from collections.abc import Callable
 
 from app.actions.base import BaseAction
 
 
 class ActionRegistry:
     def __init__(self) -> None:
-        self._handlers: dict[str, list[BaseAction]] = defaultdict(list)
+        self._handlers: defaultdict[str, list[BaseAction]] = defaultdict(list)
 
     def on(self, event_type: str) -> Callable[[type[BaseAction]], type[BaseAction]]:
         """Class decorator — registers one instance of the decorated class."""

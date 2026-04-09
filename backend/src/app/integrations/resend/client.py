@@ -10,7 +10,6 @@ module is first imported relative to env-var loading.
 from __future__ import annotations
 
 import resend
-import resend.exceptions
 
 from app.config import get_settings
 from app.core.logging import get_logger
@@ -50,7 +49,9 @@ class ResendClient:
         }
 
         response: resend.Emails.SendResponse = await resend.Emails.send_async(params)
-        return str(response["id"])
+        message_id = str(response["id"])
+        logger.info("email.sent", to=to, subject=subject, message_id=message_id)
+        return message_id
 
 
 resend_client = ResendClient()
