@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, ValidationError
 
 from app.agents.base import Agent, AgentRequest, AgentResponse
@@ -19,6 +21,7 @@ class _CommentContext(BaseModel):
     linear_branch_name: str | None = None
     from_state: str
     to_state: str
+    github_issue_url: str | None = None
 
 
 class GitHubIssueCommenterAgent(Agent):
@@ -35,30 +38,38 @@ class GitHubIssueCommenterAgent(Agent):
                 iterations=1,
             )
 
-        async with GitHubClient() as client:
-            issue = await client.find_issue_by_branch_or_title(
-                context.repo,
-                context.linear_issue_id,
-                linear_title=context.linear_title,
-                linear_branch_name=context.linear_branch_name,
+        if self._should_skip(context.to_state):
+            return AgentResponse(
+                output="Skipped comment for QA state (handled by QAHandoffAgent)",
+                agent=self.name,
+                iterations=1,
             )
-            if issue is None:
-                logger.warning(
-                    "github_issue_commenter.issue_not_found",
-                    repo=context.repo,
-                    linear_issue_id=context.linear_issue_id,
-                )
-                return AgentResponse(
-                    output="No linked GitHub issue found; skipped comment",
-                    agent=self.name,
-                    iterations=1,
-                )
 
-            issue_number = issue.number
-            body = (
-                f"🤖 **Linear Status Update**: This issue transitioned from "
-                f"`{context.from_state}` to `{context.to_state}`."
-            )
+        issue_number = self._parse_issue_number(context.github_issue_url)
+
+        async with GitHubClient() as client:
+            if issue_number is None:
+                # Fallback: heuristic search by Linear ID / title / branch.
+                issue = await client.find_issue_by_branch_or_title(
+                    context.repo,
+                    context.linear_issue_id,
+                    linear_title=context.linear_title,
+                    linear_branch_name=context.linear_branch_name,
+                )
+                if issue is None:
+                    logger.warning(
+                        "github_issue_commenter.issue_not_found",
+                        repo=context.repo,
+                        linear_issue_id=context.linear_issue_id,
+                    )
+                    return AgentResponse(
+                        output="No linked GitHub issue found; skipped comment",
+                        agent=self.name,
+                        iterations=1,
+                    )
+                issue_number = issue.number
+
+            body = _build_comment(context.from_state, context.to_state)
             await client.create_issue_comment(context.repo, issue_number, body)
 
         return AgentResponse(
@@ -77,9 +88,43 @@ class GitHubIssueCommenterAgent(Agent):
             "linear_branch_name": request.context.get("linear_branch_name"),
             "from_state": request.context.get("from_state"),
             "to_state": request.context.get("to_state"),
+            "github_issue_url": request.context.get("github_issue_url"),
         }
         try:
             return _CommentContext.model_validate(payload)
         except ValidationError:
             logger.warning("github_issue_commenter.invalid_context", context=payload)
             return None
+
+    @staticmethod
+    def _should_skip(to_state: str) -> bool:
+        """Skip posting a comment for QA — that flow is handled by QAHandoffAgent."""
+        return to_state.strip().lower() == "qa"
+
+    @staticmethod
+    def _parse_issue_number(url: str | None) -> int | None:
+        """Extract the issue number from a GitHub issue URL."""
+        if not url:
+            return None
+        match = re.search(r"/issues/(\d+)", url)
+        return int(match.group(1)) if match else None
+
+
+_STATE_MESSAGES: dict[str, str] = {
+    "backlog": "your ticket has been moved to **Backlog**! We'll get to it soon.",
+    "todo": "your ticket is now in **Todo** and queued for work.",
+    "in progress": "someone picked this up! Your ticket is now **In Progress**.",
+    "in review": "your ticket is now **In Review** — almost there!",
+    "done": "your ticket has been marked as **Done**. Thanks for reporting!",
+    "cancelled": "your ticket was **Cancelled**. If you think this is wrong, please reopen.",
+    "triage": "your ticket is being **triaged** by the team.",
+}
+
+
+def _build_comment(from_state: str, to_state: str) -> str:
+    to_lower = to_state.strip().lower()
+    message = _STATE_MESSAGES.get(
+        to_lower,
+        f"your ticket moved from `{from_state}` to `{to_state}`.",
+    )
+    return f"beep boop, I am a bot :robot:\n\n{message}"

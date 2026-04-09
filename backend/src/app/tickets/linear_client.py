@@ -80,7 +80,7 @@ class LinearClient:
             """
             query Search($filter: IssueFilter, $first: Int) {
               issues(filter: $filter, first: $first) {
-                nodes { id identifier title url state { name } }
+                nodes { id identifier title url description state { name } }
               }
             }
             """,
@@ -93,6 +93,37 @@ class LinearClient:
             },
         )
         return list(data["issues"]["nodes"])
+
+    async def get_issue_description(self, issue_id: str) -> str | None:
+        """Fetch the description of an issue by its UUID."""
+        data = await self._gql(
+            """
+            query Issue($id: String!) {
+              issue(id: $id) { description }
+            }
+            """,
+            {"id": issue_id},
+        )
+        issue = data.get("issue")
+        return issue.get("description") if issue else None
+
+    async def find_label_by_name(self, team_id: str, name: str) -> str | None:
+        """Return the label ID for *name* in the given team, or ``None``."""
+        data = await self._gql(
+            """
+            query Labels($filter: IssueLabelFilter) {
+              issueLabels(filter: $filter) { nodes { id name } }
+            }
+            """,
+            {
+                "filter": {
+                    "team": {"id": {"eq": team_id}},
+                    "name": {"eqIgnoreCase": name},
+                },
+            },
+        )
+        nodes = data["issueLabels"]["nodes"]
+        return str(nodes[0]["id"]) if nodes else None
 
     async def create_issue(
         self,

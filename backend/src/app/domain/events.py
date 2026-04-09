@@ -40,6 +40,8 @@ class DomainEvent(BaseModel):
     team_key: str
     source: str = "linear"
     occurred_at: datetime
+    # Issue description from the provider (e.g. Linear markdown body).
+    issue_description: str | None = None
     # Raw provider payload kept for debugging / handler edge-cases.
     raw: dict[str, Any] = Field(default_factory=dict)
 

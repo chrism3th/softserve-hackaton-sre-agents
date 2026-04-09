@@ -163,6 +163,50 @@ class GitHubClient:
             json=payload.model_dump(),
         )
 
+    async def list_webhooks(self, repo: str) -> list[dict[str, Any]]:
+        """List all webhooks configured on a repository."""
+        repo_path = _repo_path(repo)
+        try:
+            response = await self._client.get(f"/repos/{repo_path}/hooks")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise GitHubError(
+                f"GitHub API request failed: {e.response.status_code} GET hooks"
+            ) from e
+        data = response.json()
+        return list(data) if isinstance(data, list) else []
+
+    async def create_webhook(
+        self,
+        repo: str,
+        url: str,
+        secret: str,
+        events: list[str],
+    ) -> dict[str, Any]:
+        """Create a new webhook on a repository."""
+        repo_path = _repo_path(repo)
+        payload = {
+            "name": "web",
+            "active": True,
+            "events": events,
+            "config": {
+                "url": url,
+                "content_type": "json",
+                "secret": secret,
+                "insecure_ssl": "0",
+            },
+        }
+        try:
+            response = await self._client.post(
+                f"/repos/{repo_path}/hooks", json=payload
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise GitHubError(
+                f"GitHub API request failed: {e.response.status_code} POST hooks"
+            ) from e
+        return dict(response.json())
+
     async def _search_issues(self, query: str) -> GitHubIssueReference | None:
         payload = await self._request(
             "GET",

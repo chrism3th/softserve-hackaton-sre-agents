@@ -207,6 +207,12 @@ clean-docker: ## Stop stack and prune volumes (destroys DB data)
 .PHONY: nuke
 nuke: clean clean-docker ## Full reset: caches, volumes, everything
 
+##@ Tunnels
+
+.PHONY: ngrok
+ngrok: ## Start ngrok tunnel for HTTPS webhook delivery
+	$$HOME/.local/bin/ngrok http 8000
+
 ##@ Quick checks
 
 .PHONY: check

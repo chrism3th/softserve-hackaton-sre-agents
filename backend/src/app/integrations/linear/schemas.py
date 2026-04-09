@@ -44,6 +44,7 @@ class LinearIssueDataDTO(BaseModel):
     id: str
     identifier: str  # e.g. "TEA-123"
     title: str
+    description: str | None = None
     state: LinearStateDTO | None = None
     team: LinearTeamDTO | None = None
     creator: LinearCreatorDTO | None = None
