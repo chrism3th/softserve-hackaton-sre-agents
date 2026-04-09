@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     linear_api_key: str = ""
     linear_team_key: str = "TEA"
     linear_api_url: str = "https://api.linear.app/graphql"
+    linear_webhook_secret: str = ""
 
     # GitHub
     github_webhook_secret: str = ""

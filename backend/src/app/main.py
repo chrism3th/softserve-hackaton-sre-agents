@@ -8,7 +8,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agents, health, tickets
+import app.actions.handlers  # noqa: F401 — registers all action handlers
+from app.api import agents, health, tickets, webhooks
 from app.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.observability import init_tracing
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(tickets.router, prefix="/api/v1")
+    app.include_router(webhooks.router, prefix="/api/v1")
 
     return app
 

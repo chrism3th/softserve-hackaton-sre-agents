@@ -55,6 +55,9 @@ services:
   migrate:
     # One-shot service: applies pending Alembic migrations then exits.
     # backend depends on this completing successfully before it starts.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: alembic upgrade head
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-app}

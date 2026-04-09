@@ -13,7 +13,6 @@ services:
 
   migrate:
     build:
-      context: ./backend
       dockerfile: Dockerfile.dev
     volumes:
       - ./backend/src:/app/src
