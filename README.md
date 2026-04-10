@@ -28,7 +28,8 @@ API Request ──POST──────▶ │                               �
                           ┌──────────▼────────────────────┐
                           │     Linear Webhook (state Δ)   │
                           │                               │
-                          │  ▶ QAHandoffAgent (→ GitHub PR)│
+                          │  ▶ BranchCreator  (→ branch)  │
+                          │  ▶ QAHandoffAgent (→ PR+Copilot)│
                           │  ▶ GitHubIssueCommenter (bot)  │
                           │  ▶ NotifyReporter (email)      │
                           └───────────────────────────────┘
@@ -45,7 +46,8 @@ API Request ──POST──────▶ │                               �
 | **ImageAnalyzerAgent** | Claude Vision extracts captions, OCR text, and error signals from screenshots. |
 | **TriageDrafterAgent** | LLM-powered severity classification (P0-P3) with keyword fallback. |
 | **DedupAgent** | Semantic duplicate detection against existing Linear tickets. |
-| **QAHandoffAgent** | Auto-creates GitHub PR when ticket reaches QA state. |
+| **BranchCreatorAgent** | Auto-creates a GitHub branch from `main` when ticket moves to In Progress. |
+| **QAHandoffAgent** | Auto-creates a GitHub PR and requests GitHub Copilot review when ticket reaches QA state. |
 | **GitHubIssueCommenterAgent** | Posts status updates on GitHub issues as ticket state changes. |
 
 ## Tech stack
@@ -180,10 +182,10 @@ Response:
 1. Open your Linear workspace
 2. Find the ticket that was auto-created in Step 3
 3. Move it through states:
-   - **Backlog → In Progress** → bot comments on GitHub: "Your ticket is now **In Progress**"
+   - **Backlog → In Progress** → auto-creates a branch `fix/<identifier>` from `main` + bot comments on GitHub
    - **In Progress → In Review** → bot comments: "Your ticket is now **In Review**"
    - **In Review → Done** → bot comments: "Your ticket has been marked as **Done**"
-   - Moving to **QA** → auto-creates a GitHub PR and requests Copilot review
+   - **→ QA** → auto-creates a GitHub PR on the branch and requests **GitHub Copilot** code review
 
 **Where to see it:**
 - The original GitHub issue → bot comments appear
