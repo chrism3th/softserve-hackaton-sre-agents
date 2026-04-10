@@ -11,6 +11,9 @@ from app.config import get_settings
 from app.core.logging import get_logger
 from app.integrations.github.schemas import (
     GitHubCreatePullRequestRequest,
+    GitHubGitCommitDetail,
+    GitHubGitCommitResponse,
+    GitHubGitRefResponse,
     GitHubIssueCommentRequest,
     GitHubIssueCommentResponse,
     GitHubIssueReference,
@@ -161,6 +164,59 @@ class GitHubClient:
             f"/repos/{repo_path}/pulls/{pr_number}/requested_reviewers",
             response_model=GitHubRequestedReviewersResponse,
             json=payload.model_dump(),
+        )
+
+    async def create_branch(
+        self,
+        repo: str,
+        branch_name: str,
+        from_branch: str = "main",
+        commit_message: str | None = None,
+    ) -> GitHubGitRefResponse:
+        """Create a new branch from an existing branch's HEAD.
+
+        An empty commit is added so the branch differs from the source,
+        which is required for opening a pull request.
+        """
+        repo_path = _repo_path(repo)
+        # Get the SHA of the source branch
+        source_ref = await self._request(
+            "GET",
+            f"/repos/{repo_path}/git/ref/heads/{from_branch}",
+            response_model=GitHubGitRefResponse,
+        )
+        base_sha = source_ref.object.sha
+
+        # Create an empty commit (same tree, new commit) so a PR can be opened
+        msg = commit_message or f"chore: initialize branch {branch_name}"
+        # Get the tree SHA of the base commit
+        base_commit = await self._request(
+            "GET",
+            f"/repos/{repo_path}/git/commits/{base_sha}",
+            response_model=GitHubGitCommitDetail,
+        )
+        tree_sha = base_commit.tree.sha
+
+        empty_commit = await self._request(
+            "POST",
+            f"/repos/{repo_path}/git/commits",
+            response_model=GitHubGitCommitResponse,
+            json={
+                "message": msg,
+                "tree": tree_sha,
+                "parents": [base_sha],
+            },
+        )
+
+        # Create the new branch pointing at the empty commit
+        return await self._request(
+            "POST",
+            f"/repos/{repo_path}/git/refs",
+            response_model=GitHubGitRefResponse,
+            json={
+                "ref": f"refs/heads/{branch_name}",
+                "sha": empty_commit.sha,
+            },
         )
 
     async def list_webhooks(self, repo: str) -> list[dict[str, Any]]:

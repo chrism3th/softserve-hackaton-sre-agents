@@ -50,15 +50,17 @@ API Request ──POST──────▶ │                               �
 
 ## Tech stack
 
-| Layer | Tools |
-|---|---|
-| **Backend** | FastAPI, Python 3.12, asyncio, Pydantic v2 |
-| **LLM** | Anthropic Claude (Sonnet 4.6) — multimodal (vision) |
-| **Database** | PostgreSQL 16 (async via SQLAlchemy + asyncpg) |
-| **Cache** | Redis 7 |
-| **Integrations** | Linear (GraphQL), GitHub (REST v3), Resend (email) |
-| **Observability** | OpenTelemetry + Arize Phoenix, structlog (JSON) |
-| **Infra** | Docker Compose (dev + prod overlays), Makefile |
+| Layer | Tools | Why |
+|---|---|---|
+| **Backend** | FastAPI, Python 3.12, asyncio, Pydantic v2 | FastAPI's native async support handles concurrent webhook ingestion without blocking. Pydantic v2 gives us zero-cost request validation and typed settings, critical when every payload must be parsed reliably. |
+| **LLM** | Anthropic Claude (Sonnet 4.6) — multimodal (vision) | Claude's vision capability lets us extract error evidence directly from screenshots (stack traces, dashboards, error modals) in a single API call — no separate OCR pipeline needed. Sonnet balances cost and quality for real-time triage. |
+| **Database** | PostgreSQL 16 (async via SQLAlchemy 2.x + asyncpg) | Postgres gives us JSONB for flexible incident metadata, full-text search for dedup, and `pgvector`-ready extensibility if we add embeddings. asyncpg is the fastest async Postgres driver available. |
+| **Cache** | Redis 7 | Sub-millisecond reads for dedup lookups and rate limiting on webhook endpoints. Also serves as a lightweight pub/sub bus if we need real-time frontend updates. |
+| **Integrations** | Linear (GraphQL), GitHub (REST v3), Resend (email) | Linear is the team's existing ticket tracker — GraphQL lets us fetch exactly the fields we need for dedup. GitHub webhooks are the natural incident entry point. Resend provides transactional email with a simple API and no SMTP config. |
+| **Observability** | OpenTelemetry + Arize Phoenix, structlog (JSON) | Full distributed tracing across every agent hop — Phoenix gives us an LLM-specific trace UI (token usage, prompt/response pairs). structlog emits structured JSON so logs are queryable from day one. |
+| **Infra** | Docker Compose (dev + prod overlays), Makefile, Nginx | Single `make up` boots the entire stack identically for every developer. Compose overlays let us keep dev (hot-reload, mounts) and prod (resource limits, built images) separate. Nginx acts as reverse proxy with security headers. |
+| **Dev tooling** | ruff, mypy (strict), pytest + respx, Alembic | ruff replaces black + isort + flake8 in one tool (~100× faster). mypy strict catches type errors before runtime. respx mocks HTTP calls deterministically so agent tests never hit external APIs. Alembic manages schema migrations safely. |
+| **Resilience** | tenacity (retries) | External APIs (Linear, GitHub, Anthropic) can flake. tenacity gives us declarative exponential backoff with jitter so transient failures don't kill the pipeline. |
 
 ## Quick start
 

@@ -101,6 +101,32 @@ class GitHubIssueCommentAutomationAction(BaseAction):
 
 
 @action_registry.on(EventType.issue_status_changed)
+class BranchCreatorAutomationAction(BaseAction):
+    """Create a GitHub branch when a Linear issue moves to In Progress."""
+
+    async def execute(self, event: DomainEvent) -> None:
+        if not isinstance(event, IssueStatusChangedEvent):
+            return
+
+        settings = get_settings()
+        if not settings.github_repo:
+            logger.warning(
+                "github_automation.repo_not_configured",
+                action="branch_creator",
+                issue=event.issue_identifier,
+            )
+            return
+
+        context = await _build_context(event)
+        agent = get_agent("branch_creator")
+        request = AgentRequest(
+            input=event.issue_title,
+            context={"repo": settings.github_repo, **context},
+        )
+        await agent.run(request)
+
+
+@action_registry.on(EventType.issue_status_changed)
 class QAHandoffAutomationAction(BaseAction):
     """Create a PR and request Copilot review when state reaches QA."""
 

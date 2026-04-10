@@ -38,6 +38,28 @@ class GitHubRequestedReviewersResponse(BaseModel):
     id: int | None = None
 
 
+class GitHubGitRefObject(BaseModel):
+    sha: str
+
+
+class GitHubGitRefResponse(BaseModel):
+    ref: str
+    object: GitHubGitRefObject
+
+
+class GitHubGitTreeRef(BaseModel):
+    sha: str
+
+
+class GitHubGitCommitDetail(BaseModel):
+    sha: str
+    tree: GitHubGitTreeRef
+
+
+class GitHubGitCommitResponse(BaseModel):
+    sha: str
+
+
 class GitHubSearchIssueItem(BaseModel):
     number: int
     pull_request: dict[str, Any] | None = None

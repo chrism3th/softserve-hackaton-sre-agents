@@ -7,6 +7,7 @@ Keep this simple: a dict is a perfectly good registry for dozens of agents.
 from __future__ import annotations
 
 from app.agents.base import Agent, EchoAgent
+from app.agents.branch_creator_agent import BranchCreatorAgent
 from app.agents.claude_agent import ClaudeAgent
 from app.agents.dedup_agent import DedupAgent
 from app.agents.github_issue_commenter_agent import GitHubIssueCommenterAgent
@@ -18,6 +19,7 @@ from app.agents.triage_drafter_agent import TriageDrafterAgent
 
 _REGISTRY: dict[str, Agent] = {
     EchoAgent.name: EchoAgent(),
+    BranchCreatorAgent.name: BranchCreatorAgent(),
     ClaudeAgent.name: ClaudeAgent(),
     DedupAgent.name: DedupAgent(),
     GuardrailAgent.name: GuardrailAgent(),
